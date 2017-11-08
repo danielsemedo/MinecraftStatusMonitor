@@ -4,6 +4,8 @@ using System.IO;
 using System.Threading;
 using System.Data;
 using AngleSharp.Dom.Html;
+using Microsoft.ApplicationInsights;
+using System.Collections.Generic;
 
 namespace MakeAGETRequest_charp
 {
@@ -32,8 +34,7 @@ namespace MakeAGETRequest_charp
             wrGETURL.Proxy = WebProxy.GetDefaultProxy();
 
             Stream objStream;
-                while (i != 287)
-                { 
+               
                      objStream = wrGETURL.GetResponse().GetResponseStream();
                        
                      StreamReader objReader = new StreamReader(objStream);
@@ -49,13 +50,22 @@ namespace MakeAGETRequest_charp
 
 
 
+                double resultMaxPlayers = Convert.ToDouble(maxPlayers);
+                double resultOnlinePlayers = Convert.ToDouble(onlinePlayers);
 
-                   
 
-                        st.WriteLog(text);
+                var tc = new TelemetryClient();
+                tc.Context.InstrumentationKey = "a327b24d-f1b8-4a60-8388-5611823df089";
 
-                        Thread.Sleep(1000);
-                }
+                var properties = new Dictionary<string, string> { { "Game", "Minecraft" }, { "Server Status", serverStatus } };
+                var measurements = new Dictionary<string, double> { { "MaxPlayers", resultMaxPlayers }, { "Online Players Now", resultOnlinePlayers } };
+                tc.TrackEvent("Minecraft Server Status", properties, measurements);
+                tc.TrackMetric("Online Players Now", resultOnlinePlayers, properties);
+
+                st.WriteLog(text);
+
+                Thread.Sleep(1000);
+                
 
             }
 
