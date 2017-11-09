@@ -12,18 +12,67 @@ namespace MakeAGETRequest_charp
     /// <summary>
     /// Summary description for Class1.
     /// </summary>
-    class Class1
+    class MinecraftMonitor
     {
+
+        static double resultMaxPlayers = 0;
+        static double resultOnlinePlayers = 0;
+        static double sumMaxPlayers = 0;
+        static double sumOnlinePlayers = 0;
+        static string serverStatus = "";
+
+        public double SumOnlinePlayers { get => SumOnlinePlayers; set => SumOnlinePlayers = value; }
+        public double SumMaxPlayers { get => sumMaxPlayers; set => sumMaxPlayers = value; }
+        public double ResultOnlinePlayers { get => resultOnlinePlayers; set => resultOnlinePlayers = value; }
+        public double ResultMaxPlayers { get => resultMaxPlayers; set => resultMaxPlayers = value; }
+        public static string ServerStatus { get => serverStatus; set => serverStatus = value; }
+
         static void Main(string[] args)
         {
             int i = 0;
 
+            Console.WriteLine("Started Successfully the telemetry...");
+
             while (i < 100)
             {
 
-            
+                GetTelemetryData("https://mcapi.us/server/status?ip=23.101.143.45&port=25565");
+                GetTelemetryData("https://mcapi.us/server/status?ip=40.76.203.58&port=25565");
+                GetTelemetryData("https://mcapi.us/server/status?ip=40.71.27.187&port=25565");
+                AppInsightsSendTelemetryData(ServerStatus, sumMaxPlayers, sumOnlinePlayers);
+
+                Console.WriteLine("Minecraft servers status:  serverstatus: {0} | Max Players: {1} | Online Players: {2}", serverStatus, sumMaxPlayers, sumOnlinePlayers);
+
+                ServerStatus = null;
+                sumMaxPlayers = 0;
+                sumOnlinePlayers = 0;
+
+                Thread.Sleep(10000);
+
+            }
+
+
+        }
+
+        private static void AppInsightsSendTelemetryData(string serverStatus, double sumMaxPlayers, double sumOnlinePlayers)
+        {
+            var tc = new TelemetryClient();
+            tc.Context.InstrumentationKey = "a327b24d-f1b8-4a60-8388-5611823df089";
+
+            var properties = new Dictionary<string, string> { { "Game", "Minecraft" }, { "Server Status", serverStatus } };
+            var measurements = new Dictionary<string, double> { { "MaxPlayers", sumMaxPlayers }, { "Online Players Now", sumOnlinePlayers } };
+            tc.TrackEvent("Minecraft Server Status", properties, measurements);
+            tc.TrackMetric("Online Players Now", sumOnlinePlayers, properties);
+
+           
+        }
+
+        public static void GetTelemetryData(string url)
+        {
+
+
             string sURL;
-            sURL = "https://mcapi.us/server/status?ip=13.92.44.209&port=25565";
+            sURL = url;
 
             WebRequest wrGETURL;
             wrGETURL = WebRequest.Create(sURL);
@@ -34,45 +83,37 @@ namespace MakeAGETRequest_charp
             wrGETURL.Proxy = WebProxy.GetDefaultProxy();
 
             Stream objStream;
-               
-                     objStream = wrGETURL.GetResponse().GetResponseStream();
-                       
-                     StreamReader objReader = new StreamReader(objStream);
 
-                      var st = new DataStorage();
+            objStream = wrGETURL.GetResponse().GetResponseStream();
 
-                      var text = objReader.ReadLine();
-
-                    
-                        var serverStatus = DataStorage.getBetween(text, strStart: "\"online\":", strEnd: ",");
-                        var maxPlayers = DataStorage.getBetween(text, strStart: "\"max\":", strEnd: ",");
-                        var onlinePlayers = DataStorage.getBetween(text, strStart: "\"now\":", strEnd: "}");
+            StreamReader objReader = new StreamReader(objStream);
 
 
+            var st = new LogTelemetryStorage();
 
-                double resultMaxPlayers = Convert.ToDouble(maxPlayers);
-                double resultOnlinePlayers = Convert.ToDouble(onlinePlayers);
+            var text = objReader.ReadLine();
 
 
-                var tc = new TelemetryClient();
-                tc.Context.InstrumentationKey = "a327b24d-f1b8-4a60-8388-5611823df089";
+            ServerStatus = LogTelemetryStorage.getBetween(text, strStart: "\"online\":", strEnd: ",");
+            var maxPlayers = LogTelemetryStorage.getBetween(text, strStart: "\"max\":", strEnd: ",");
+            var onlinePlayers = LogTelemetryStorage.getBetween(text, strStart: "\"now\":", strEnd: "}");
 
-                var properties = new Dictionary<string, string> { { "Game", "Minecraft" }, { "Server Status", serverStatus } };
-                var measurements = new Dictionary<string, double> { { "MaxPlayers", resultMaxPlayers }, { "Online Players Now", resultOnlinePlayers } };
-                tc.TrackEvent("Minecraft Server Status", properties, measurements);
-                tc.TrackMetric("Online Players Now", resultOnlinePlayers, properties);
 
-                st.WriteLog(text);
 
-                Thread.Sleep(1000);
-                
+            resultMaxPlayers = Convert.ToDouble(maxPlayers);
+            resultOnlinePlayers = Convert.ToDouble(onlinePlayers);
 
-            }
+
+            sumMaxPlayers = sumMaxPlayers + resultMaxPlayers;
+            sumOnlinePlayers = sumOnlinePlayers + resultOnlinePlayers;
+
+            st.WriteLog(text);
+
 
 
         }
 
-        public class DataStorage
+        public class LogTelemetryStorage
         {
             public void WriteLog(String rzad)
             {
@@ -103,6 +144,10 @@ namespace MakeAGETRequest_charp
                     return "";
                 }
             }
+
+
+
+
 
 
         }
